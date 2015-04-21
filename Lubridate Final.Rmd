@@ -1,0 +1,456 @@
+---
+title: "Lubridate"
+output: word_document
+---
+##Playing with dates made easy with Lubridate 
+
+Lubridate makes it easier to work with dates and times by providing functions to identify and parse date-time data, extract and modify components of a date-time (years, months, days, hours, minutes, and seconds), perform accurate math on date-times, handle time zones and Daylight Savings Time. Lubridate has a consistent, memorable syntax, that makes working with dates fun instead of frustrating.
+
+#Parsing and Manipulation 
+Section author - Nandan Gururaj
+```{r}
+library(lubridate)
+library(ggplot2)
+library(plyr)
+library(base)
+options(warn=-1)
+
+#parsing
+
+R<- mdy("12-01-2010")
+R
+R<- dmy("12-01-2010")
+R
+
+#parsing vectors of dates - wrong way
+
+#R<- ymd(c("2010.31.12", "2011/01/01"))
+#R
+
+#parsing vectors of dates - right way
+R<- ymd(c("2010/31/12", "2011/01/01"))
+R
+
+#Specifying a different Time Zone
+
+R <- ymd_hms("2011-06-04 12:00:00", tz = "Pacific/Auckland")
+R
+```
+
+Using 'Lakers' data set containing statistics of every major league basketball game
+played by the Los Angeles Lakers during the 2008-2009 season
+```{r}
+data(lakers)
+head(lakers)
+
+#Exploring the date variable
+R<- str(lakers$date)
+R<-lakers$date <- ymd(lakers$date)
+R<- str(lakers$date)
+
+#observing distribution of games
+R<- qplot(date, 0, data = lakers, colour = game_type)
+R
+```
+Manipulation with dates and times
+```{r}
+date <- now()
+date
+
+minute(date)
+wday(date, label = TRUE, abbr = FALSE)
+
+#setting values to dates
+
+day(date) <- 5
+date
+
+dates <- ymd_hms("2010-01-01 01:00:00", "2010-01-01 01:30:00")
+dates
+minute(dates) <- mean(minute(dates))
+dates
+
+#Changing multiple attributes at once
+
+update(date, year = 2010, month = 1, day = 1,tz="GMT")
+date
+
+#changing dates by adding or subtracting units of time 
+hour(date) <- 12
+date
+date <- date + hours(3)
+date
+```
+
+#Arithmatics with Dates
+
+Section Authors - Anantesh Salem & Archana Jadhav
+
+```{r}
+start_2012 <- ymd_hms("2012-01-01 12:00:00")
+start_2012 + years(1)
+```
+vs.
+```{r}
+start_2012 + dyears(1)
+
+```
+
+Instants: An instant is a specific moment in time. Most date-time objects are referred as an "instant" in R , eg: January 1st, 2012. Lubridate does not create a new class for instant objects. We can check if an object is an instant or not through a helper function is.instant, let see how 
+
+```{r}
+is.instant(365)
+is.instant(start_2012)
+```
+Timespans are recorded using Intervals, Periods and durations.
+
+Intervals: 
+By definition "interval" is a span of time lapse between 2 instants.Thus, we can easily calculate the lenght of the interval in terms of unit of time. In R- programming , the lubridate package uses the interval object class to model intervals, lets see how:
+
+```{r}
+start_2011 <- ymd_hms("2011-01-01 12:00:00") # instant 1 
+start_2010 <- ymd_hms("2010-01-01 12:00:00") # instant 2
+
+# We can create a new interval object by subtracting two instants
+span <- new_interval(start_2010 ,start_2011)
+span
+
+span_total = start_2011-start_2010# subtracting instant 1 from 2
+span_total
+
+
+# suppose we want to access the start and end date of the interval, we can use 2 functions from the lubridate package as follows:
+int_standardize(span) # first we need to standardize the interval object
+int_start(span)
+int_end(span)
+
+# If our aim is to add another instant to the exisiting interval object we can do so using as.interval, it simply pairs the 2 arguments of the functions. 
+as.interval(span,start_2012)
+```
+Durations: 
+Duration is the length of time span in a interval, measured in terms of unit of time eg: seconds, and units larger than seconds, such as years, months, weeks, days,hours, and minutes. Interestingly, no matter if the length of time being measured in years has a leap year( February month 29 days long), or our daylight savings time, or any such variants, the duration calcualted remains unaffected as it is always measured in seconds.
+```{r}
+# creating duration object
+new_duration(60)
+# we can use a numbr of helper functions to calcualte duration in seconds such as 
+dminutes(5)
+# say we specifically want to know duration in seconds for 3 consecutive hours
+1:3*dhours(1)
+
+# duration can also be added & subtracted from any instant object:
+start_2011 + dyears(1)
+start_2012 - dyears(1)
+# we can also add or subtract intervals. suppose we want to create a instant for the 9th day of January 2011 with specific time or the hour we can do so by:
+
+t<-start_2011+dweeks(1)+ddays(1)+dhours(2) + dminutes(1.5) + dseconds(3)
+t
+# lubridate has a unique function to calculate the time span of an interval object using as.duration(), no matter the class format of the interval object
+as.duration(span)
+as.duration(span_total)
+```
+Period:
+Periods record a time span not only in terms of seconds as seen in the case of duration but in larger units of times such as  days, motnhs, weeks,years.
+We can use periods to accurately model clock times without knowing when events
+such as leap seconds, leap days, and DST changes occur. There are some specific helper functions in the lubridate package that can be used to do so.Here are a few 
+
+```{r}
+weeks(3)
+months(3)
+
+#suppose we want to create an instant for the period of 2 months , 4 weeks and 5 days we can do so by
+x<-months(2)+weeks(4)+days(5)+hours(8)+minutes(1)+seconds(33)
+x
+
+# if we wish to convert timespans to period object, we can use the function as.period() available in the lubridate package.
+
+as.period(span)
+
+#Note: Periods can be added to instants, intervals, and other periods, but not to durations.
+```
+Division with timespans:
+Objects of each timespan class|interval, duration, and period|can be divided by objects of the others. Lets try it out
+```{r}
+halloween <- ymd("2010-10-31")
+christmas <- ymd("2010-12-25")
+interval <- new_interval(halloween, christmas)
+```
+lubridate automatically coerces interval objects in the denominator to duration objects.
+```{r}
+interval / dweeks(1)
+
+```
+Division is not possible with periods. Since periods have inconsistent lengths, we can not
+express the remainder as a decimal.
+```{r}
+##interval / months(1)
+```
+If we want an exact calculation, we should use a duration instead of a period.
+
+# Getting hands dirty with practicing on actual dataset
+```{r}
+load("C:/Users/Saket/Desktop/traffic data/collision.rda")
+
+str(collision)
+```
+We need to create a time stamp variable by collating collision time and collision date variables
+```{r}
+collision$Collision.Timestamp<-dmy_hms(
+  paste(collision$Collision.date,collision$Collision.Time))
+```
+creating a subset of data with only pedestrians
+```{r}
+pedestrians<-subset(collision,Involved.With=="Pedestrian")
+```
+creating a histogram with number of collisions in a day in a week for the whole dataset
+```{r}
+ggplot(pedestrians, aes(x=wday(Collision.Timestamp,label=T,abbr=F)))+
+  geom_histogram()
+```
+creating a histogram with number of collisions in a montj in a week for the whole dataset
+```{r}
+ggplot(pedestrians, aes(x=month(Collision.Timestamp,label=T,abbr=T)))+
+  geom_histogram()
+```
+Creating a heat map combining both the information
+```{r}
+pedestrians$day_of_week <- wday(pedestrians$Collision.Timestamp, label = TRUE, abbr = FALSE)
+pedestrians$hour_of_day <- hour(pedestrians$Collision.Timestamp)
+daytime<-table(pedestrians$hour_of_day,pedestrians$day_of_week)
+dfdaytime <- data.frame(daytime)
+
+ggplot(dfdaytime, aes(x=Var2, y=Var1, fill=Freq)) + geom_tile() + scale_fill_gradient(low = "skyblue", high = "hotpink") + ggtitle("Heatmap of Collisons in LA by day vs. hour") + xlab("Day of week") + ylab ("hour of day")
+```
+
+
+#Rounding 
+Section Author - Saket Dabi
+
+Just like numbers, date time occur in order, allowing it to be rounding. Lubridate allow us to do it in threeways 
+
+##Round_date 
+it takes a date-time object and rounds it to the nearest integer value of the specified time unit. Users can specify whether to round to the nearest second, minute, hour, day, week, month, or year.
+
+##Floor_date 
+
+##Ceiling_date
+
+The syntax - round_date(x,
+    unit = c("second", "minute", "hour", "day", "week", "month", "year"))
+
+where X = vector of  date time objects , in our case column pedestrians$Collision.Timestamp
+unit =a character string specifying the time unit to be rounded to. Should be one of "second","minute","hour","day", "week", "month", or "year."
+
+```{r}
+pedestrians$round.timestamp_hour = round_date(pedestrians$Collision.Timestamp, "hour")
+pedestrians$round.timestamp_day = round_date(pedestrians$Collision.Timestamp, "day")
+pedestrians$round.timestamp_week = round_date(pedestrians$Collision.Timestamp, "week")
+
+pedestrians$hour_of_hour_round <- hour(pedestrians$round.timestamp_hour)
+pedestrians$day_of_week = wday(pedestrians$round.timestamp_day,label = TRUE, abbr = TRUE)
+
+rounded_daytime = table(pedestrians$hour_of_hour_round,pedestrians$day_of_week)
+dfdaytime_rounded = data.frame(rounded_daytime)
+
+##heat map
+
+ggplot(dfdaytime_rounded, aes(x=Var2, y=Var1, fill=Freq)) + geom_tile() + scale_fill_gradient(low = "lightyellow", high = "red") + ggtitle("Heatmap of Collisons in LA by day vs. hour rounded") + xlab("Day of week") + ylab ("hour of day")
+
+```
+We see that the plot has changed and we an emphasise pricely  that the accidents occur in later part of the day and in early morning and mostly during weekdays.
+
+Ceiling_date - rounds the time stamp to nearest up time/date/hour respectively 
+floor_date- rounds the time stamp to lowest down time/date/hour/respectively 
+
+Another good chart we can display will be the weekly accidents from last 5 years, which can be further explored.
+
+```{r}
+ggplot(pedestrians, aes(x=round.timestamp_week )) + 
+  geom_histogram(binwidth = 60*60*24*7,aes(fill = ..count..)) +
+  scale_fill_gradient("Count", low = "lightblue", high = "blue") + 
+  xlab("Year") + ggtitle("Accidents per week")
+
+```
+
+#Time Zones
+by default the time zone in R is UTC or GMT. Using this function is very useful for data with multiple geographies and knowing that the default is UTC, time zone give multiple names to same instant. 
+Syntax = with_tz (x , "timezone desired")
+
+Another function Force_tz changes the instant of time itself, meaning it keeps the time same but chages the timezone thus changing the time instant.
+ for e.g 
+ 
+```{r}
+#Example
+Sys.timezone()
+r = Sys.time()
+r
+r_tz = with_tz(r, "UTC")
+r_tz
+f_tz = force_tz(r, "America/Los_Angeles")
+f_tz
+pedestrians$Collision.Timestamp[1:5]
+```
+In our case there is no issue as all the records are instants from the same time zone. Moving forward we will discuss the day light saving function. 
+
+#Day light Savings
+It is very crucial to analyse the time instants with respect to day light savings as it can hamper the true time the instant occurred. 
+For e.g. - The last instant occured at 11:59 PM CST before day light savings , and 1 second later the clock will read 1:00 AM CST , thus hampering the true instants that occured after 11:59. 
+
+
+```{r}
+timezonedata = subset(pedestrians, year(Collision.Timestamp) <2010)
+timezonedata = timezonedata[1:10,]
+
+timezonedata$Collision.Timestamp[1] = '2008-04-01 23::59 PDT'
+attr(timezonedata$Collision.Timestamp, "tzone") <- "America/Los_Angeles"
+timezonedata$Collision.Timestamp[1]
+# Thus as discussed earlier we need to keep the time same but use different timezone as , adjusting the timezone is changing the instant itself.
+timezonedata = subset(pedestrians, year(Collision.Timestamp) <2010)
+timezonedata = timezonedata[1:10,]
+force_tz(timezonedata$Collision.Timestamp, "America/Los_Angeles")
+```
+One thing that needs to be noted is that , if the data is recorded in region with daylight savings , it is better to use periods instead of durations. 
+
+#Case 1 
+Section Author - Rupantar Rana
+Let us try to work on a Case together 
+
+Dataset : lakers in the lubridate package
+
+```{r}
+str(lakers$date)
+
+lakers$date<-ymd(lakers$date)
+```
+Memorial Day
+Memorial day also occurs according to a rule; it falls on the last Monday of May. To calculate the date of Memorial day, we can again start with the first of the year.
+```{r}
+date <- ymd("2015-01-01")
+month(date) <- 5
+date
+```
+Now our holiday occurs in relation to the last day of the month instead of the first. We find
+the last day of the month by rounding up to the next month and then subtracting a day.
+
+```{r}
+date <- ceiling_date(date, "month") - days(1)
+date
+wday(date, label = TRUE, abbr = FALSE)
+```
+We can then check which day of the week May 31st falls on.As it falls on Sunday , we will just subtract 6 days from it to get the last Monday of the month.
+
+```{r}
+date <- date - days(6)
+wday(date, label = TRUE, abbr = FALSE)
+
+str(lakers$date)
+```
+Now our date is ready for analysis. R now recognizes the dates as POSIXct date-time objects. It will now treat them as date-times in any functions that have POSIXct specific methods. 
+Let us try to plot the occurrences of home and away games throughout the season. Our x axis will display date-time information  and color will indicate the game type (whether home or away)
+for the tick marks .
+
+```{r}
+qplot(x=date,y=0, data = lakers, colour = game_type)
+
+# Same as ggplot(lakers,aes(x=date,y=0,color= game_type))+geom_point()
+```
+
+The above Figure  shows that games are played continuously throughout the season with a few short breaks. The frequency of games seems lower at the start of the season and games appear to be grouped into clusters of home games and away games.
+
+Let us try to graph the frequency of the basketball games with the day of the week. 
+
+```{r}
+ggplot(lakers,aes(x=wday(date,label = TRUE))) + geom_histogram() + xlab("Day of the week")
+```
+
+The frequency of basketball games varies throughout the week (Figure 2). Surprisingly, the
+highest number of games are played on Tuesdays.
+Now we look at the games themselves. In particular, we look at the distribution of plays
+throughout the game. The lakers data set lists the time that appeared on the game clock
+for each play. These times begin at 12:00 at the beginning of each period and then count
+down to 00:00, which marks the end of the period. The first two digits refer to the number
+of minutes left in the period. The second two digits refer to the number of seconds.
+The times have not been parsed as date-time data to R. It would be difficult to record the time data as a date-time object because the data is incomplete: a minutes and seconds element 
+are not sufficient to identify a unique instant of time. However, we can store the minutes
+and seconds information as a period object, 
+
+
+```{r}
+str(lakers$time)
+lakers$time <- ms(lakers$time)
+head(lakers$time)
+```
+Since periods have relative lengths, it is dangerous to compare them to each other. So we
+should next convert our periods to durations, which have exact lengths.
+
+```{r}
+lakers$time <- as.duration(lakers$time)
+head(lakers$time)
+```
+This allows us to directly compare different durations. It would also allow us to determine
+exactly when each play occurred by adding the duration to the instant the game began.
+(Unfortunately, the starting time for each game is not available in the data set). However, we
+can still calculate when in each game each play occurred. Each period of play is 12 minutes
+long and overtime|the 5th period|is 5 minutes long. At the start of each period, the game
+clock begins counting down from 12:00. So to calculate how much play time elapses before
+each play, we subtract the time that appears on the game clock from a duration of 12, 24,
+36, 48, or 53 minutes (depending on the period of play). We now have a new duration that
+shows exactly how far into the game each play occurred.
+
+
+```{r}
+lakers$time <- dminutes(c(12, 24, 36, 48, 53)[lakers$period]) - lakers$time
+```
+We can now plot the number of events over time within each game (Figure 3). We can plot
+the time of each event as a duration, which will display the number of seconds into the game
+each play occurred on the x axis,or we can take advantage of pretty.date() to make pretty tick marks by first transforming
+each duration into a date-time. This helper function recognizes the most intuitive binning and
+labeling of date-time data, which further enhances our graph. To change durations into date-
+times we can just add them all to the same date-time. It does not matter which date we chose.
+Since the range of our data occurs entirely within an hour, only the minutes information will
+display in the graph.
+
+
+```{r}
+qplot(time, data = lakers, geom = "histogram", binwidth = 60)
+lakers$minutes <- ymd("2008-01-01") + lakers$time
+qplot(minutes, data = lakers, geom = "histogram", binwidth = 60)
+```
+
+We see that the number of plays peaks within each of the four periods and then plummets at
+the beginning of the next period, Figure 3. The most plays occur in the last minute of the
+game. Perhaps any shot is worth taking at this point or there's less of an incentive not to
+foul other players. Fewer plays occur in overtime, since not all games go to overtime.
+
+Now lets look more closely at just one basketball game: the game played against the Boston
+Celtics on Christmas of 2008. We can quickly model the amounts of time that occurred
+between each shot attempt.
+
+```{r}
+game1 <- lakers[lakers$date == ymd("20081225"),]
+attempts <- game1[game1$etype == "shot",]
+```
+
+The waiting times between shots will be the timespan that occurs between each shot attempt.
+Since we have recorded the time of each shot attempt as a duration (above), we can record
+the differences by subtracting the two durations. This automatically creates a new duration
+whose length is equal to the difference between the first two durations.
+
+```{r}
+attempts$wait <- c(attempts$time[1], diff(attempts$time))
+qplot(as.integer(wait), data = attempts, geom = "histogram", binwidth = 2)
+```
+
+
+Rarely did 30 seconds go by without at least one shot attempt, but on occasion up to 50
+seconds would pass without an attempt.
+We can also examine changes in the score throughout the game. This reveals that though the
+game was eventful, the Lakers maintained a lead for the most of the game, Figure 5. Note:
+the necessary calculations are made simpler by the ddply() function from the plyr package,
+which lubridate automatically loads.
+```{r}
+game1_scores <- ddply(game1, "team", transform, score = cumsum(points))
+game1_scores <- game1_scores[game1_scores$team != "OFF",]
+qplot(ymd("2008-01-01") + time, score, data = game1_scores,
+geom = "line", colour = team)
+
+```
